@@ -1591,34 +1591,13 @@ static int serialxr78x_probe(struct platform_device *dev)
         dev_err(& dev->dev, "Can't get resource!\n");
         return -1;
     }
-    // force to equal to zero for debug.
+    XR_DEBUG_INTR("xr16l78x: res start 0x%08x", res->start);
+
     devid = 0;
-    /*
-    switch(res->start)
-    {
-        case S3C2410_CS3:
-            devid = 0;
-            break;
-        case S3C2410_CS4:
-            devid = 1;
-            break;
-        case S3C2410_CS5:
-            devid = 2;
-            break;
-        default:
-            printk("incorrect res->start!\n");
-            return -1;
-    }
-     */ /* deleted in 2020 */
-    ret = uart_register_driver(&xr16l78x_uart_driver[devid]);
-    if(ret < 0) {
-        printk("Fail to Register driver!\n");
-        return ret;
-    }
 
     serialxr78x_register_ports(dev, &xr16l78x_uart_driver[devid], devid);
 
-#if 1
+#if 0
     resource_size_t test_org;
     unsigned int addr;
     unsigned char drev, dvid;
@@ -1633,6 +1612,7 @@ static int serialxr78x_probe(struct platform_device *dev)
 
     return 0;
 }
+
 static int serialxr78x_remove(struct platform_device *dev)
 {
     return 0;
@@ -1720,28 +1700,34 @@ void unregister_serial(int line)
 
 static int __init serialxr78x_init(void)
 {
-    int ret, i;
+    int ret;
 
     printk(KERN_INFO "Exar XR16L78x specific serial driver $Revision: 1.0 $ "
         "%d ports, IRQ sharing %sabled\n", (int) UART_XR788_NR,
         share_irqs ? "en" : "dis");
 
-//  for (i = 0; i < NR_IRQS; i++)
-//      spin_lock_init(&irq_lists[i].lock);
-
-
-//  ret = uart_register_driver(&xr16l78x_uart_driver);
+    ret = uart_register_driver(&xr16l78x_uart_driver[0]);
+    if(ret < 0) {
+        printk("Fail to Register driver!\n");
+        return ret;
+    }
     ret = platform_driver_register(&xr16l78x_uart_of_driver);
+    if(ret < 0) {
+        printk("xa16l78x: Fail to Register platform driver!\n");
+        return ret;
+    }
     
-    if (ret >= 0)
-    //  serialxr78x_register_ports(&xr16l78x_uart_driver);
-        printk("Driver Register Successfully!\n");
+    if (ret >= 0) printk("xa16l78x: Driver Register Successfully!\n");
         
-    return ret;
+    return 0;
 }
 
 static void __exit serialxr78x_exit(void)
 {
+    uart_unregister_driver(&xr16l78x_uart_driver[0]);
+    platform_driver_unregister(&xr16l78x_uart_of_driver);
+
+#if 0
     int i;
     int j;
             
@@ -1758,6 +1744,7 @@ static void __exit serialxr78x_exit(void)
 //  uart_unregister_driver(&serialxr78x_reg);
 //  kmem_cache_destroy(xr788_drv_cachep);
 //  kmem_cache_destroy(xr788_tty_cachep);
+#endif
 }
 
 module_init(serialxr78x_init);
