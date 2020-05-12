@@ -53,6 +53,8 @@ unsigned int share_irqs = SERIALEXAR_SHARE_IRQS;
 #define PASS_LIMIT  256
 #define XR788_COUNT 3
 
+#define XR78X_UART_REG_SPACE    0x10
+
 #if 1
 #define XR_DEBUG_INTR(fmt...)   printk(fmt)
 #else
@@ -1278,11 +1280,12 @@ static void serialxr78x_release_std_resource(struct uart_xr78x_port *up)
 
 static void serialxr78x_release_port(struct uart_port *port)
 {   
+    serialxr78x_release_std_resource(up_to_xr78xp(port));
 }
 
 static int serialxr78x_request_port(struct uart_port *port)
 {
-    return 0;
+    return serialxr78x_request_std_resource(up_to_xr78xp(port));
 }
 
 static void serialxr78x_config_port(struct uart_port *port, int flags)
@@ -1416,8 +1419,6 @@ static struct uart_ops serialxr78x_pops = {
 
 static struct uart_xr78x_port serialxr78x_ports[XR788_COUNT][UART_XR788_NR];
 
-#define XR78x_UART_OFFSET   0x10
-
 static unsigned int ports_inited[XR788_COUNT] = {0, 0, 0};
 
 static inline void serialxr78x_init_port(struct uart_xr78x_port *up)
@@ -1472,18 +1473,14 @@ serial78x_setup_ports(struct platform_device *dev, unsigned int dev_num)
          i++, up++) {
         serialxr78x_init_port(up);
 
-        up->port.mapbase   = res->start+ (i * XR78x_UART_OFFSET);
-        up->port.mapsize = 0x10;
+        up->port.mapbase   = res->start+ (i * XR78X_UART_REG_SPACE);
+        up->port.mapsize = XR78X_UART_REG_SPACE;
         up->port.irq      = irq;
         up->port.iotype   = UPIO_MEM;
         up->port.regshift = 0;
         up->port.line = i;
 
         set_io_from_upio(& up->port);
-        if (serialxr78x_request_std_resource(up) < 0) {
-            dev_err(&dev->dev, "request the resource failed! port_num=%d",
-                i + 1);
-        }
     }
 
     // set to the port initialized.
@@ -1546,6 +1543,35 @@ static struct uart_driver xr16l78x_uart_driver[] = {
     },
 };
 
+static void serialxr78x_test_chip(struct resource *res)
+{
+    void* mapped_addr;
+    unsigned int addr;
+    unsigned char drev, dvid;
+    int i;
+
+    if (!res) return;
+
+    addr = res->start;
+    mapped_addr = ioremap(addr, resource_size(res));
+    if (!mapped_addr) {
+        XR_DEBUG_INTR("Failed to remap the memory. addr=0x%x", addr);
+        return;
+    }
+
+    for (i = 0; i < 16; i++) {
+        drev = readb(mapped_addr + i);
+        XR_DEBUG_INTR("***** %s:: addr=0x%x, mapped=0x%x, val=0x%x",
+            __func__, addr, mapped_addr, drev);
+    }
+
+    drev = readb(mapped_addr + 0x8C);
+    dvid = readb(mapped_addr + 0x8D);
+    XR_DEBUG_INTR("***** %s:: drev=0x%x, dvid=0x%x",
+            __func__,  drev, dvid);
+
+    iounmap(mapped_addr);
+}
 
 static int serialxr78x_probe(struct platform_device *dev)
 {
@@ -1555,7 +1581,6 @@ static int serialxr78x_probe(struct platform_device *dev)
 #if 0
     unsigned int irq;
 #endif
-
 
     dev_info(& dev->dev, "***xr16l788 chip:: start probe.");
     res = platform_get_resource(dev, IORESOURCE_MEM, 0);
@@ -1567,25 +1592,10 @@ static int serialxr78x_probe(struct platform_device *dev)
 
     devid = 0;
 
-   // serialxr78x_register_ports(dev, &xr16l78x_uart_driver[devid], devid);
-
-#if 1
-    resource_size_t test_org;
-    unsigned int addr;
-    unsigned char drev, dvid;
-    int i;
-    addr = res->start;
-    test_org = ioremap(addr, 0x90);
-    for (i = 0; i < 16; i++) {
-        drev = readb(test_org + i);
-        XR_DEBUG_INTR("***** %s:: addr=0x%x, mapped=0x%x, val=0x%x",
-            __func__, addr, test_org, drev);
-    }
-
-    drev = readb(test_org + 0x8C);
-    dvid = readb(test_org + 0x8D);
-    XR_DEBUG_INTR("***** %s:: addr=0x%x, mapped=0x%x drev=0x%x, dvid=0x%x",
-            __func__, addr, test_org, drev, dvid);
+#if 0
+    serialxr78x_register_ports(dev, &xr16l78x_uart_driver[devid], devid);
+#else
+    serialxr78x_test_chip(res);
 #endif
 
     return 0;
@@ -1602,8 +1612,9 @@ serialxr78x_unregister_ports(struct uart_driver *drv, unsigned int dev_num)
 
 static int serialxr78x_remove(struct platform_device *dev)
 {
-//	serialxr78x_unregister_ports(&xr16l78x_uart_driver[0], 0);
-
+#if 0
+	serialxr78x_unregister_ports(&xr16l78x_uart_driver[0], 0);
+#endif
     return 0;
 }
 
