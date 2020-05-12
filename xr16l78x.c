@@ -1,8 +1,7 @@
 /*
-*       xr1678x.c  -- EXAR multiport serial driver for XR16L78x family of UARTS.
-*   Base on EXAR's XR16L78X driver V1.0
-*
-*/
+ *  xr16l78x.c  -- EXAR multiport serial driver for XR16L78x family of UARTS.
+ *
+ */
 
 #if 1       /* Enable dev_dbg */
 #define DEBUG   1
@@ -22,10 +21,8 @@
 #include <linux/string.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-
 #include <linux/serial_reg.h>
 #include <linux/serial.h>
-//#include <linux/serialP.h>    /*deleted in 2020*/
 #include <linux/serial_core.h>
 
 #include <asm/io.h>
@@ -52,8 +49,6 @@ unsigned int share_irqs = SERIALEXAR_SHARE_IRQS;
 
 #define XR_788_MAJOR       40
 #define XR_788_MINOR       0
-//#define XR_788_MAJOR       4
-//#define XR_788_MINOR       64
 #define XR78X_UART_FIFO_SIZE    64
 #define PASS_LIMIT  256
 #define XR788_COUNT 3
@@ -119,7 +114,7 @@ struct uart_xr78x_port {
     void            (*pm)(struct uart_port *port,
                       unsigned int state, unsigned int old);
     const struct uart_xr78x_ops *ops;
-    /* */
+    /* read and write the DLL/DLM register.*/
     int         (*dl_read)(struct uart_xr78x_port *);
     void        (*dl_write)(struct uart_xr78x_port *, int);
 };
@@ -131,15 +126,9 @@ struct irq_info {
     struct list_head    *head;
 };
 
-/*
- *  the following is the new irq list.
- */
-//
 #define NR_IRQ_HASH     32  /* Can be adjusted later */
 static struct hlist_head irq_lists[NR_IRQ_HASH];
 static DEFINE_MUTEX(hash_mutex);    /* Used to walk the hash */
-
-//static struct irq_info irq_lists[NR_IRQS];
 
 /*
  * Here we define the default xmit fifo size used for each type of UART.
@@ -156,7 +145,6 @@ static const struct serial_uart_config uart_config[PORT_MAX_XR+1] = {
     { "Unknown",    1,  0 },
     { "XR78x",      64, 0 },
 };
-
 
 static inline struct uart_xr78x_port *up_to_xr78xp(struct uart_port *up)
 {
@@ -1149,7 +1137,6 @@ serialxr78x_set_ldisc(struct uart_port *port, struct ktermios *termios)
 /*
  *      EXAR ioctls
  */
-//#define   FIOQSIZE        0x5460 
 #define     EXAR_READ_REG       (FIOQSIZE + 1)
 #define     EXAR_WRITE_REG      (FIOQSIZE + 2)
 
@@ -1157,6 +1144,7 @@ struct xrioctl_rw_reg {
     unsigned char reg;
     unsigned char regvalue;
 };
+
 /*
  * This function is used to handle Exar Device specific ioctl calls
  * The user level application should have defined the above ioctl
@@ -1165,7 +1153,6 @@ struct xrioctl_rw_reg {
  * The Ioctl functioning is pretty much self explanatory here in the code,
  * and the register values should be between 0 to XR_17X15Y_EXTENDED_RXTRG
  */
-
 static int
 serialxr78x_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 {
@@ -1213,8 +1200,6 @@ serialxr78x_pm(struct uart_port *port, unsigned int state,
         if (up->pm)
             up->pm(port, state, oldstate);
     } else {
-        /* wake */
-        
         /* Wake up UART */
         serial_out(up, UART_IER, 0);
         
@@ -1528,7 +1513,6 @@ serialxr78x_register_ports(struct platform_device *dev,
 }
 
 #define SERIALXR_CONSOLE    NULL
-#if 1
 static struct uart_driver xr16l78x_uart_driver[] = {
     [0] = {
         .owner          = THIS_MODULE,
@@ -1537,7 +1521,7 @@ static struct uart_driver xr16l78x_uart_driver[] = {
 //      .dev_name       = "ttyS",
         .major          = XR_788_MAJOR,
         .minor          = XR_788_MINOR,
-        .nr         = UART_XR788_NR,
+        .nr         	= UART_XR788_NR,
         .cons           = SERIALXR_CONSOLE,
     },
     [1] = {
@@ -1547,7 +1531,7 @@ static struct uart_driver xr16l78x_uart_driver[] = {
 //      .dev_name       = "ttyS",
         .major          = XR_788_MAJOR,
         .minor          = XR_788_MINOR +  UART_XR788_NR,
-        .nr         = UART_XR788_NR,
+        .nr         	= UART_XR788_NR,
         .cons           = SERIALXR_CONSOLE,
     },
     [2] = {
@@ -1557,23 +1541,11 @@ static struct uart_driver xr16l78x_uart_driver[] = {
 //      .dev_name       = "ttyS",
         .major          = XR_788_MAJOR,
         .minor          = XR_788_MINOR + 2 * UART_XR788_NR,
-        .nr         = UART_XR788_NR,
+        .nr         	= UART_XR788_NR,
         .cons           = SERIALXR_CONSOLE,
     },
 };
-#endif
-#if 0
-static struct uart_driver xr16l78x_uart_driver = {
-        .owner          = THIS_MODULE,
-        .driver_name        = "xrserial",
-        .dev_name       = "ttyEx",
-        .major          = XR_788_MAJOR,
-        .minor          = XR_788_MINOR,
-        .nr         = UART_XR788_NR * XR788_COUNT,
-        .cons           = SERIALXR_CONSOLE,
-};
-#endif
-    
+
 
 static int serialxr78x_probe(struct platform_device *dev)
 {
@@ -1595,17 +1567,23 @@ static int serialxr78x_probe(struct platform_device *dev)
 
     devid = 0;
 
-    serialxr78x_register_ports(dev, &xr16l78x_uart_driver[devid], devid);
+   // serialxr78x_register_ports(dev, &xr16l78x_uart_driver[devid], devid);
 
-#if 0
+#if 1
     resource_size_t test_org;
     unsigned int addr;
     unsigned char drev, dvid;
+    int i;
+    addr = res->start;
+    test_org = ioremap(addr, 0x90);
+    for (i = 0; i < 16; i++) {
+        drev = readb(test_org + i);
+        XR_DEBUG_INTR("***** %s:: addr=0x%x, mapped=0x%x, val=0x%x",
+            __func__, addr, test_org, drev);
+    }
 
-    addr = res->start+ (UART_XR788_NR * XR78x_UART_OFFSET);
-    test_org = ioremap(addr, 0x10);
-    drev = readb(test_org + 0xC);
-    dvid = readb(test_org + 0xD);
+    drev = readb(test_org + 0x8C);
+    dvid = readb(test_org + 0x8D);
     XR_DEBUG_INTR("***** %s:: addr=0x%x, mapped=0x%x drev=0x%x, dvid=0x%x",
             __func__, addr, test_org, drev, dvid);
 #endif
@@ -1613,8 +1591,19 @@ static int serialxr78x_probe(struct platform_device *dev)
     return 0;
 }
 
+static void
+serialxr78x_unregister_ports(struct uart_driver *drv, unsigned int dev_num)
+{
+	int i;
+
+	for (i = 0; i < UART_XR788_NR; i++)
+		uart_remove_one_port(drv, &serialxr78x_ports[dev_num][i].port);
+}
+
 static int serialxr78x_remove(struct platform_device *dev)
 {
+//	serialxr78x_unregister_ports(&xr16l78x_uart_driver[0], 0);
+
     return 0;
 }
 
@@ -1633,70 +1622,6 @@ static struct platform_driver xr16l78x_uart_of_driver = {
         .of_match_table = xr16l78x_uart_of_match,
     },
 };
-
-
-/*
- * register_serial and unregister_serial allows for 16x50 serial ports to be
- * configured at run-time, to support PCMCIA modems.
- */
-#if 0
-static int __register_serial(struct serial_struct *req, int line)
-{
-    struct uart_port port;
-
-    port.iobase   = req->port;
-    port.membase  = req->iomem_base;
-    port.irq      = req->irq;
-    port.uartclk  = req->baud_base * 16;
-    port.fifosize = req->xmit_fifo_size;
-    port.regshift = req->iomem_reg_shift;
-    port.iotype   = req->io_type;
-    port.flags    = req->flags | UPF_BOOT_AUTOCONF;
-    port.mapbase  = req->iomap_base;
-    port.line     = line;
-    
-    if (share_irqs)
-        port.flags |= UPF_SHARE_IRQ;
-
-    /*
-     * to be safer, check and default to the standard clock rate.
-     */
-    if (port.uartclk == 0)
-        port.uartclk = 921600 * 16; // XR17x15y clock rate
-
-    return uart_register_port(&xr16l78x_uart_driver, &port);
-}
-
-/**
- *  register_serial - configure a xr17x15y serial port at runtime
- *  @req: request structure
- *
- *  Configure the serial port specified by the request. If the
- *  port exists and is in use an error is returned. If the port
- *  is not currently in the table it is added.
- *
- *  The port is then probed and if necessary the IRQ is autodetected
- *  If this fails an error is returned.
- *
- *  On success the port is ready to use and the line number is returned.
- */
-int register_serial(struct serial_struct *req)
-{
-    return __register_serial(req, -1);
-}
-
-/**
- *  unregister_serial - remove a xr17x15y serial port at runtime
- *  @line: serial line number
- *
- *  Remove one serial port.  This may be called from interrupt
- *  context.
- */
-void unregister_serial(int line)
-{
-    uart_unregister_port(&xr16l78x_uart_driver, line);
-}
-#endif
 
 static int __init serialxr78x_init(void)
 {
@@ -1726,29 +1651,10 @@ static void __exit serialxr78x_exit(void)
 {
     uart_unregister_driver(&xr16l78x_uart_driver[0]);
     platform_driver_unregister(&xr16l78x_uart_of_driver);
-
-#if 0
-    int i;
-    int j;
-            
-//  for (i = 0; i < UART_XR788_NR; i++)
-    for (i = 0; i < XR788_COUNT; i++)
-    {
-        for (j = 0; j < UART_XR788_NR; j++)
-            uart_remove_one_port(&xr16l78x_uart_driver[i], &serialxr78x_ports[i][j].port);
-//      kmem_cache_free(xr788_drv_cachep, serialxr78x_reg[i].state);
-//      kmem_cache_free(xr788_tty_cachep, serialxr78x_reg[i].tty_driver);
-//      serialxr78x_unregister_driver(&serialxr78x_reg[i]);
-        uart_unregister_driver(&xr16l78x_uart_driver[i]);
-    }   
-//  uart_unregister_driver(&serialxr78x_reg);
-//  kmem_cache_destroy(xr788_drv_cachep);
-//  kmem_cache_destroy(xr788_tty_cachep);
-#endif
 }
 
 module_init(serialxr78x_init);
 module_exit(serialxr78x_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Exar XR16L78x serial driver: for 3 chips on FFC3  $");
+MODULE_DESCRIPTION("Exar XR16L78x serial driver: for 3 chips on FFC4  $");
